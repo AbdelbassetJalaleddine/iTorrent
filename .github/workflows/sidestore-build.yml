@@ -15,7 +15,8 @@ on:
 
 concurrency:
   group: sidestore-${{ github.ref }}
-  cancel-in-progress: true
+  # Let a running build finish; newer pushes wait their turn
+  cancel-in-progress: false
 
 jobs:
   build_unsigned_ipa:
