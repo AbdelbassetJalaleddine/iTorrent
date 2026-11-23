@@ -471,6 +471,8 @@ private extension TorrentListViewModel.Sort {
             return %"list.sort.addedDate"
         case .size:
             return %"list.sort.size"
+        case .queueOrder:
+            return String(localized: "list.sort.queueOrder", defaultValue: "Queue Order")
         }
     }
 }

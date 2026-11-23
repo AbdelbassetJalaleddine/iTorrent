@@ -63,6 +63,8 @@ class TorrentService: @unchecked Sendable, ObservableObject {
     var startedAt: [String: Date] = [:]
     var slowHashes: Set<String> = []
     var speedTransitionSince: [String: Date] = [:]
+    /// Fires when queue positions change (used to re-sort the list)
+    let queueChanged = PassthroughSubject<Void, Never>()
 
     // MARK: Connection recovery state (see TorrentService+Recovery.swift)
     var wasDisconnected = false

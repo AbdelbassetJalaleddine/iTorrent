@@ -354,6 +354,7 @@ private extension TorrentService {
 
     /// Queue positions changed: refresh every queued torrent so "#N" updates.
     func refreshQueuedTorrents() {
+        queueChanged.send()
         let queued = Set(TorrentQueue.shared.queuedItems)
         for handle in torrents.values where queued.contains(handle.snapshot.infoHashes.best.hex) {
             handle.__unthrottledUpdatePublisher.send()
