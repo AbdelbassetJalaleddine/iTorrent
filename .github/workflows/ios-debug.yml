@@ -1,10 +1,11 @@
 name: "Debug Build"
 
+# Turned off for automatic runs in this fork: it needs the original
+# developer's signing secrets and would only fail. Use the
+# "SideStore Build (unsigned IPA)" workflow instead.
+# It can still be started by hand from the Actions tab.
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch:
 
 # Track stable Xcode releases on the Duo-capable runner (iOS 27.1+ SDK).
 jobs:
