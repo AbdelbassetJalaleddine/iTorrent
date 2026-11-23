@@ -34,6 +34,16 @@ class RssFeedProvider: @unchecked Sendable {
     convenience init() {
         self.init(fetchUpdatesOnInit: true)
         updatePublisher.send()
+
+        // Check feeds regularly while the app is running, when auto-download is used.
+        disposalBag.bind {
+            Timer.publish(every: RssAutoDownloader.checkInterval, on: .main, in: .common)
+                .autoconnect()
+                .sink { [weak self] _ in
+                    guard let self, RssAutoDownloader.shared.hasEnabledRules else { return }
+                    Task { try? await self.fetchUpdates() }
+                }
+        }
     }
 
     init(fetchUpdatesOnInit: Bool) {
@@ -63,6 +73,8 @@ extension RssFeedProvider {
             res[feed] = try await feed.update()
         }
         Self.saveToDisk(rssModels)
+        // Add new torrents from feeds with auto-download turned on
+        await RssAutoDownloader.shared.process(rssModels)
         return res
     }
 
@@ -87,6 +99,7 @@ extension RssFeedProvider {
             if let index = rssModels.firstIndex(of: url) {
                 rssModels.remove(at: index)
             }
+            RssAutoDownloader.shared.removeRule(for: url)
         }
     }
 

@@ -261,7 +261,7 @@ extension TorrentService {
     }
 
     /// Torrents that are added while the limits are full are queued too.
-    func applyQueueToNewTorrent(_ handle: TorrentHandle, attempt: Int = 0) {
+    func applyQueueToNewTorrent(_ handle: TorrentHandle, start: Bool = true, attempt: Int = 0) {
         // libtorrent starts new torrents itself (as "auto managed"), and only
         // counts auto managed torrents against its limits. Take control of
         // the new torrent so the same limits apply to every torrent, then
@@ -272,10 +272,15 @@ extension TorrentService {
             guard snapshot.isValid else { return }
             // libtorrent ignores pause while it validates resume data; retry.
             if snapshot.state == .checkingResumeData {
-                if attempt < 20 { applyQueueToNewTorrent(handle, attempt: attempt + 1) }
+                if attempt < 20 { applyQueueToNewTorrent(handle, start: start, attempt: attempt + 1) }
                 return
             }
             pauseTracked(handle)
+            // Added paused: keep it paused, outside of the queue.
+            guard start else {
+                handle.__unthrottledUpdatePublisher.send()
+                return
+            }
             TorrentQueue.shared.enqueue(snapshot.infoHashes.best.hex)
             processQueue()
             handle.__unthrottledUpdatePublisher.send()

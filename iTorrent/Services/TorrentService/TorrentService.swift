@@ -65,6 +65,8 @@ class TorrentService: @unchecked Sendable, ObservableObject {
     var speedTransitionSince: [String: Date] = [:]
     /// Fires when queue positions change (used to re-sort the list)
     let queueChanged = PassthroughSubject<Void, Never>()
+    /// Torrents being added that must stay paused after adding
+    var addPausedHashes: Set<String> = []
 
     // MARK: Connection recovery state (see TorrentService+Recovery.swift)
     var wasDisconnected = false
@@ -90,10 +92,13 @@ extension TorrentService {
     }
 
     @discardableResult
-    func addTorrent(by file: Downloadable, at storage: UUID? = nil) -> Bool {
+    func addTorrent(by file: Downloadable, at storage: UUID? = nil, startPaused: Bool = false) -> Bool {
         guard session.torrentsMap[file.infoHashes] == nil
         else { return false }
 
+        // Added paused (e.g. by RSS auto-download): it starts with the
+        // schedule or when the user starts it.
+        if startPaused { addPausedHashes.insert(file.infoHashes.best.hex) }
         session.addTorrent(file, to: storage ?? preferences.defaultStorage)
         return true
     }
@@ -129,7 +134,8 @@ extension TorrentService: SessionDelegate {
         torrents[torrent.snapshot.infoHashes] = torrent
 
         // Respect max active / downloading limits for new torrents too
-        applyQueueToNewTorrent(torrent)
+        let startPaused = addPausedHashes.remove(torrent.snapshot.infoHashes.best.hex) != nil
+        applyQueueToNewTorrent(torrent, start: !startPaused)
 
         // Add trackers from torrent list service if needed
         if preferences.isTrackersAutoaddingEnabled, !torrent.isPrivate {

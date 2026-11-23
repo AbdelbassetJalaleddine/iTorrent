@@ -21,6 +21,7 @@ struct StartScheduledTorrentsIntent: AudioPlaybackIntent {
     static let openAppWhenRun: Bool = false
 
     func perform() async throws -> some IntentResult {
+        try await ITorrentIntentError.checkAppIsReady()
         await MainActor.run {
             PreferencesStorage.shared.scheduleHandledStart = Date()
             TorrentService.shared.runScheduledStart()
@@ -33,5 +34,24 @@ struct StartScheduledTorrentsIntent: AudioPlaybackIntent {
             }
         }
         return .result()
+    }
+}
+
+/// Errors shown in Shortcuts.
+enum ITorrentIntentError: Error, CustomLocalizedStringResourceConvertible {
+    case appNotReady
+
+    var localizedStringResource: LocalizedStringResource {
+        switch self {
+        case .appNotReady:
+            return "iTorrent was closed by iOS. Open iTorrent once, then the automation will work again."
+        }
+    }
+
+    /// iTorrent sets up its services when its window is created. If iOS
+    /// launched the app only for this action, that has not happened yet.
+    static func checkAppIsReady() async throws {
+        let isReady = await MainActor.run { !UIApplication.shared.connectedScenes.isEmpty }
+        guard isReady else { throw ITorrentIntentError.appNotReady }
     }
 }
