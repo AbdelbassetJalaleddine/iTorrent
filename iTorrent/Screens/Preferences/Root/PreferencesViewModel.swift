@@ -107,6 +107,10 @@ private extension PreferencesViewModel {
                     preferences.scheduleStopMinutes = minutes
                 }
             })
+            PRButtonViewModel(with: .init(title: PreferencesViewModel.scheduleAutomationTitle, value: Just("").eraseToAnyPublisher(), selectAction: { [unowned self] in
+                dismissSelection.send()
+                showAutomationSetup()
+            }))
         })
 
         sections.append(.init(id: "torrentQueueLimits", header: %"preferences.queueLimits") {
@@ -291,6 +295,36 @@ private extension PreferencesViewModel {
 
 // MARK: - Schedule
 private extension PreferencesViewModel {
+    /// iOS doesn't let apps create automations, so show the steps with the
+    /// user's start time and open the Shortcuts app.
+    func showAutomationSetup() {
+        let time = TorrentService.scheduleTimeString(preferences.scheduleStartMinutes)
+        let message = String(localized: "preferences.schedule.automation.steps", defaultValue: """
+        In the Shortcuts app:
+
+        1. Open the Automation tab and tap +
+        2. Choose Time of Day
+        3. Set \(time), Daily, and Run Immediately
+        4. Tap Next, then New Blank Automation
+        5. Add "Check RSS Feeds" (optional), then "Start Scheduled Torrents" (search iTorrent)
+        6. Tap Done
+
+        iTorrent will then start your downloads at \(time) every day, even when the phone is locked.
+        """)
+
+        alert(title: PreferencesViewModel.scheduleAutomationTitle, message: message, actions: [
+            .init(title: String(localized: "common.cancel"), style: .cancel),
+            .init(title: String(localized: "preferences.schedule.automation.open", defaultValue: "Open Shortcuts"), style: .default, isPrimary: true, action: {
+                guard let url = URL(string: "shortcuts://") else { return }
+                UIApplication.shared.open(url)
+            })
+        ])
+    }
+
+    static var scheduleAutomationTitle: String {
+        String(localized: "preferences.schedule.automation", defaultValue: "Set Up Automation…")
+    }
+
     static var scheduleHeader: String {
         String(localized: "preferences.schedule", defaultValue: "Schedule")
     }
@@ -312,6 +346,6 @@ private extension PreferencesViewModel {
     }
 
     static var scheduleFooter: String {
-        String(localized: "preferences.schedule.footer", defaultValue: "Every day at the start time, all paused torrents that aren't finished start (following the queue limits). At the stop time, all torrents pause. You can still start torrents manually at any time. iOS can't wake iTorrent by itself: add a Shortcuts automation (Time of Day → Start Scheduled Torrents) so downloads start on time.")
+        String(localized: "preferences.schedule.footer", defaultValue: "Every day at the start time, all paused torrents that aren't finished start (following the queue limits). At the stop time, all torrents pause. You can still start torrents manually at any time. iOS can't wake iTorrent by itself: tap Set Up Automation to add a Shortcuts automation so downloads always start on time.")
     }
 }

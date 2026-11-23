@@ -55,3 +55,22 @@ enum ITorrentIntentError: Error, CustomLocalizedStringResourceConvertible {
         guard isReady else { throw ITorrentIntentError.appNotReady }
     }
 }
+
+/// Makes the actions show up in Shortcuts (and Spotlight/Siri) right away.
+@available(iOS 17.0, *)
+struct ITorrentAppShortcuts: AppShortcutsProvider {
+    static var appShortcuts: [AppShortcut] {
+        AppShortcut(
+            intent: StartScheduledTorrentsIntent(),
+            phrases: ["Start scheduled torrents in \(.applicationName)"],
+            shortTitle: "Start Scheduled Torrents",
+            systemImageName: "play.circle"
+        )
+        AppShortcut(
+            intent: CheckRssFeedsIntent(),
+            phrases: ["Check RSS feeds in \(.applicationName)"],
+            shortTitle: "Check RSS Feeds",
+            systemImageName: "dot.radiowaves.up.forward"
+        )
+    }
+}
