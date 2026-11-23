@@ -144,6 +144,14 @@ jobs:
           path: ${{ runner.temp }}/iTorrent-SideStore.ipa
           retention-days: 14
 
+      # Debug symbols, needed to turn crash logs into readable stack traces
+      - name: Upload dSYMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: iTorrent-dSYMs
+          path: ${{ runner.temp }}/itorrent.xcarchive/dSYMs
+          retention-days: 14
+
       - name: Prepare dependency caches for saving
         if: always()
         run: bash .github/actions/ios-build-cache/prune.sh
