@@ -51,7 +51,7 @@ jobs:
           <plist version="1.0">
           <dict>
           	<key>API_KEY</key>
-          	<string>AIzaSyA0000000000000000000000000000000</string>
+          	<string>AIzaSyA00000000000000000000000000000000</string>
           	<key>GCM_SENDER_ID</key>
           	<string>000000000000</string>
           	<key>PLIST_VERSION</key>
@@ -79,6 +79,9 @@ jobs:
           EOF
             sed -i '' 's/^          //' "$PLIST"
             plutil -lint "$PLIST"
+            # Firebase throws at launch if the API key is not exactly 39 characters
+            KEY=$(/usr/libexec/PlistBuddy -c "Print :API_KEY" "$PLIST")
+            if [ ${#KEY} -ne 39 ]; then echo "Placeholder API_KEY must be 39 characters"; exit 1; fi
           fi
 
       - name: Build archive (unsigned)
