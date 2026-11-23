@@ -1,0 +1,149 @@
+name: "SideStore Build (unsigned IPA)"
+
+# Builds an unsigned iTorrent.ipa that can be installed with SideStore / AltStore.
+# No Apple certificates or secrets are needed: SideStore re-signs the app with
+# your own Apple ID when installing it.
+#
+# Runs on every push (any branch) and can be started manually from the
+# Actions tab ("Run workflow"). The IPA is attached to the run as the
+# "iTorrent-SideStore" artifact.
+
+on:
+  push:
+    branches: [ "**" ]
+  workflow_dispatch:
+
+concurrency:
+  group: sidestore-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build_unsigned_ipa:
+    # GitHub-hosted runner with Xcode 27 (the project needs the iOS 27 SDK).
+    runs-on: xcode-27
+    timeout-minutes: 120
+    steps:
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Restore dependency caches
+        uses: ./.github/actions/ios-build-cache
+
+      - name: Create placeholder Firebase config
+        env:
+          FIREBASE_INFO_PLIST_BASE64: ${{ secrets.FIREBASE_INFO_PLIST_BASE64 }}
+        run: |
+          PLIST=iTorrent/Core/Assets/GoogleService-Info.plist
+          if [ -n "${FIREBASE_INFO_PLIST_BASE64:-}" ]; then
+            echo -n "$FIREBASE_INFO_PLIST_BASE64" | base64 --decode -o "$PLIST"
+          elif [ ! -f "$PLIST" ]; then
+            # The real file is not in the repository. A well-formed placeholder
+            # lets the app build and start; Firebase just will not report anything.
+            cat > "$PLIST" <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+          	<key>API_KEY</key>
+          	<string>AIzaSyA0000000000000000000000000000000</string>
+          	<key>GCM_SENDER_ID</key>
+          	<string>000000000000</string>
+          	<key>PLIST_VERSION</key>
+          	<string>1</string>
+          	<key>BUNDLE_ID</key>
+          	<string>com.xitrix.iTorrent2</string>
+          	<key>PROJECT_ID</key>
+          	<string>itorrent-sidestore</string>
+          	<key>STORAGE_BUCKET</key>
+          	<string>itorrent-sidestore.appspot.com</string>
+          	<key>IS_ADS_ENABLED</key>
+          	<false/>
+          	<key>IS_ANALYTICS_ENABLED</key>
+          	<false/>
+          	<key>IS_APPINVITE_ENABLED</key>
+          	<false/>
+          	<key>IS_GCM_ENABLED</key>
+          	<false/>
+          	<key>IS_SIGNIN_ENABLED</key>
+          	<false/>
+          	<key>GOOGLE_APP_ID</key>
+          	<string>1:000000000000:ios:0000000000000000000000</string>
+          </dict>
+          </plist>
+          EOF
+            sed -i '' 's/^          //' "$PLIST"
+            plutil -lint "$PLIST"
+          fi
+
+      - name: Build archive (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace iTorrent.xcworkspace \
+            -scheme "iTorrent" \
+            -archivePath "$RUNNER_TEMP/itorrent.xcarchive" \
+            -derivedDataPath "$CI_DERIVED_DATA_PATH" \
+            -clonedSourcePackagesDirPath "$CI_SOURCE_PACKAGES_PATH" \
+            -onlyUsePackageVersionsFromResolvedFile \
+            -sdk iphoneos \
+            -configuration Release \
+            -destination generic/platform=iOS \
+            -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            archive
+
+      - name: Package IPA
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/itorrent.xcarchive/Products/Applications/iTorrent.app"
+          test -d "$APP"
+
+          # Ad-hoc sign with the app group entitlement, so SideStore knows
+          # which capabilities to register when it re-signs the app.
+          ENT="$RUNNER_TEMP/entitlements.plist"
+          cat > "$ENT" <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+          	<key>com.apple.security.application-groups</key>
+          	<array>
+          		<string>group.itorrent.life-activity</string>
+          	</array>
+          </dict>
+          </plist>
+          EOF
+          sed -i '' 's/^          //' "$ENT"
+
+          find "$APP" -depth \( -name '*.framework' -o -name '*.dylib' \) -print0 | while IFS= read -r -d '' item; do
+            codesign --force --sign - --timestamp=none "$item"
+          done
+          find "$APP/PlugIns" -maxdepth 1 -name '*.appex' -print0 2>/dev/null | while IFS= read -r -d '' ext; do
+            codesign --force --sign - --timestamp=none --entitlements "$ENT" "$ext"
+          done
+          codesign --force --sign - --timestamp=none --entitlements "$ENT" "$APP"
+
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$APP" "$RUNNER_TEMP/ipa/Payload/"
+          (cd "$RUNNER_TEMP/ipa" && zip -qry "$RUNNER_TEMP/iTorrent-SideStore.ipa" Payload)
+          ls -lh "$RUNNER_TEMP/iTorrent-SideStore.ipa"
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: iTorrent-SideStore
+          path: ${{ runner.temp }}/iTorrent-SideStore.ipa
+          retention-days: 14
+
+      - name: Prepare dependency caches for saving
+        if: always()
+        run: bash .github/actions/ios-build-cache/prune.sh

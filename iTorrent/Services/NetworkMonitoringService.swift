@@ -24,6 +24,8 @@ class NetworkMonitoringService {
     // Raw cellular availability, ignores app and system restrictions
     @Published var isCellularAvailable: Bool = false
     @Published var availableInterfaces: [NWInterface] = []
+    // True when the system reports a usable internet path that iTorrent is allowed to use
+    @Published var isConnected: Bool = true
     @Published var cellularState: CTCellularDataRestrictedState = .restrictedStateUnknown
 
     init() {
@@ -76,6 +78,11 @@ private extension NetworkMonitoringService {
             updatedInterfaces = []
         } else {
             updatedInterfaces = monitor.currentPath.availableInterfaces
+        }
+
+        let isConnectedUpdate = monitor.currentPath.status == .satisfied && !updatedInterfaces.isEmpty
+        if isConnected != isConnectedUpdate {
+            isConnected = isConnectedUpdate
         }
 
         // Do not notify duplicates, otherwise iTorrent will drop connection for nothing

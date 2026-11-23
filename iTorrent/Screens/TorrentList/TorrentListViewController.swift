@@ -141,10 +141,10 @@ class TorrentListViewController<VM: TorrentListViewModel>: BaseViewController<VM
                     TorrentDetailsViewModel.resolveVC(with: torrentHandle)
                 } actionProvider: { _ in
                     let start = UIAction(title: %"details.start", image: .init(systemName: "play.fill"), attributes: torrentHandle.snapshot.canResume ? [] : .hidden, handler: { _ in
-                        torrentHandle.resume()
+                        TorrentService.shared.start(torrentHandle)
                     })
                     let pause = UIAction(title: %"details.pause", image: .init(systemName: "pause.fill"), attributes: torrentHandle.snapshot.canPause ? [] : .hidden, handler: { _ in
-                        torrentHandle.pause()
+                        TorrentService.shared.pause(torrentHandle)
                     })
                     let delete = UIAction(title: %"common.delete", image: UIImage(systemName: "trash.fill"), attributes: .destructive) { [unowned self] _ in
                         viewModel.removeTorrent(torrentHandle)
@@ -163,10 +163,10 @@ class TorrentListViewController<VM: TorrentListViewModel>: BaseViewController<VM
                     nil
                 } actionProvider: { _ in
                     let start = UIAction(title: %"details.start", image: .init(systemName: "play.fill"), handler: { _ in
-                        handles.forEach { $0.resume() }
+                        TorrentService.shared.start(handles.filter { $0.snapshot.canResume })
                     })
                     let pause = UIAction(title: %"details.pause", image: .init(systemName: "pause.fill"), attributes: handles.contains(where: { $0.snapshot.canPause }) ? [] : .hidden, handler: { _ in
-                        handles.forEach { $0.pause() }
+                        TorrentService.shared.pause(handles)
                     })
 //                    let delete = UIAction(title: %"common.delete", image: UIImage(systemName: "trash.fill"), attributes: .destructive) { [unowned self] _ in
 //                        viewModel.removeTorrent(torrentHandle)

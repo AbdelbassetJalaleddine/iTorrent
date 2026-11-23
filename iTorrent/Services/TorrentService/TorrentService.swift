@@ -47,17 +47,30 @@ class TorrentService: @unchecked Sendable, ObservableObject {
     static let fastResumePath: URL = preparedConfigurationPath
     static let metadataPath: URL = preparedConfigurationPath
 
-    private lazy var session: Session = {
+    lazy var session: Session = {
         configureOpenSSLCerts()
         var settings = Session.Settings()
         print("Working directory: \(Self.downloadPath.path())")
         return .init(Self.downloadPath, torrentsPath: Self.torrentPath, fastResumePath: Self.fastResumePath, settings: .fromPreferences(with: []), storages: PreferencesStorage.shared.storageScopes)
     }()
 
-    private let disposeBag = DisposeBag()
+    let disposeBag = DisposeBag()
 
-    @Injected private var network: NetworkMonitoringService
-    @Injected private var preferences: PreferencesStorage
+    // MARK: Queue state (see TorrentService+Queue.swift)
+    var pendingStarts: [String: Date] = [:]
+    var pendingPauses: [String: Date] = [:]
+    var isProcessingQueue = false
+
+    // MARK: Connection recovery state (see TorrentService+Recovery.swift)
+    var wasDisconnected = false
+    var recoveryGeneration = 0
+    var stalledSince: [String: Date] = [:]
+    var lastAutoRestart: [String: Date] = [:]
+    // Ignore network changes reported while the app is still starting up
+    let recoveryReadyDate = Date().addingTimeInterval(30)
+
+    @Injected var network: NetworkMonitoringService
+    @Injected var preferences: PreferencesStorage
     @Injected private var trackersListService: TrackersListService
 }
 
@@ -109,6 +122,9 @@ extension TorrentService: SessionDelegate {
     func torrentManager(_ manager: Session, didAddTorrent torrent: TorrentHandle) {
         torrent.prepareToAdd(into: self)
         torrents[torrent.snapshot.infoHashes] = torrent
+
+        // Respect max active / downloading limits for new torrents too
+        applyQueueToNewTorrent(torrent)
 
         // Add trackers from torrent list service if needed
         if preferences.isTrackersAutoaddingEnabled, !torrent.isPrivate {
@@ -168,6 +184,11 @@ private extension TorrentService {
             preferences.$storageScopes.sink { [unowned self] storages in
                 session.storages = storages
             }
+        }
+
+        DispatchQueue.main.async { [self] in
+            setupQueue()
+            setupConnectionRecovery()
         }
     }
 

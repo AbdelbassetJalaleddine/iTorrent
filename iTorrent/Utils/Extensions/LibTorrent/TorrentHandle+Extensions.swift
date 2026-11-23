@@ -20,7 +20,7 @@ extension TorrentHandle.Snapshot {
     
     var stateText: String {
         let state = friendlyState
-        var text = "\(state.name)"
+        var text = isQueued ? TorrentHandle.queuedStateName : "\(state.name)"
 
         if state == .downloading {
             text += " - ↓ \(downloadRate.bitrateToHumanReadable)/s"

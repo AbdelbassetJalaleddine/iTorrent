@@ -134,15 +134,14 @@ extension TorrentListViewModel {
 
     func resumeAllSelected(at indexPaths: [IndexPath]) {
         let torrentModels = indexPaths.compactMap { sections[$0.section].items[$0.item] as? TorrentListItemViewModel }
-        torrentModels.forEach { 
-            guard $0.torrentHandle.snapshot.canResume else { return }
-            $0.torrentHandle.resume()
-        }
+        let handles = torrentModels.map(\.torrentHandle).filter { $0.snapshot.canResume }
+        // Goes through the queue, so max active / downloading limits are respected
+        TorrentService.shared.start(handles)
     }
 
     func pauseAllSelected(at indexPaths: [IndexPath]) {
         let torrentModels = indexPaths.compactMap { sections[$0.section].items[$0.item] as? TorrentListItemViewModel }
-        torrentModels.forEach { $0.torrentHandle.pause() }
+        TorrentService.shared.pause(torrentModels.map(\.torrentHandle))
     }
 
     func rehashAllSelected(at indexPaths: [IndexPath]) {
