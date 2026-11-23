@@ -14,6 +14,7 @@
 		7C04A6092C446B4D00FBC649 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 7C04A6082C446B4D00FBC649 /* GoogleService-Info.plist */; };
 		7C1C08AA2C31F2F800569B45 /* PauseTorrentIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C1C08A92C31F2F000569B45 /* PauseTorrentIntent.swift */; };
 		7C1C08AB2C31F31900569B45 /* PauseTorrentIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C1C08A92C31F2F000569B45 /* PauseTorrentIntent.swift */; };
+		C1A1B0EB53F16947CCF25EC8 /* StartScheduledTorrentsIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A14FD12AABFE228F219E9C /* StartScheduledTorrentsIntent.swift */; };
 		7C1C08AD2C31FEA400569B45 /* IntentsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C1C08AC2C31FEA000569B45 /* IntentsService.swift */; };
 		7C1CB72A2FDB4597000CCD0D /* SwiftVLC in Frameworks */ = {isa = PBXBuildFile; productRef = 7C1CB7292FDB4597000CCD0D /* SwiftVLC */; };
 		7C1CB72C2FDEC4E7000CCD0D /* RendererRouteMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C1CB72B2FDEC4E7000CCD0D /* RendererRouteMenuView.swift */; };
@@ -222,6 +223,8 @@
 		C1A09B62179273C8EB5BB682 /* TorrentService+Queue.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A030877432D1026706D7E8 /* TorrentService+Queue.swift */; };
 		C1A0E48478DCB74F21345D2C /* TorrentService+Recovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A0575EC87A171AC826A6FC /* TorrentService+Recovery.swift */; };
 		C1A0CE8038A39D5E0853964B /* TorrentService+Recovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A0575EC87A171AC826A6FC /* TorrentService+Recovery.swift */; };
+		C1A11C17149D439536B3216F /* TorrentService+Schedule.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A1A4C123B1612DD272D137 /* TorrentService+Schedule.swift */; };
+		C1A1DAEEB975729FAE923D5A /* TorrentService+Schedule.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A1A4C123B1612DD272D137 /* TorrentService+Schedule.swift */; };
 		D1A226F42AEF01B700669D6D /* LibTorrent.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D1A226F32AEF01B700669D6D /* LibTorrent.framework */; };
 		D1A226F52AEF01B700669D6D /* LibTorrent.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = D1A226F32AEF01B700669D6D /* LibTorrent.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		D1A226F92AEF04E200669D6D /* TorrentListViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A226F72AEF04E200669D6D /* TorrentListViewController.swift */; };
@@ -336,6 +339,7 @@
 		7C013DE22C28A97F0026A11B /* sound.m4a */ = {isa = PBXFileReference; lastKnownFileType = file; path = sound.m4a; sourceTree = "<group>"; };
 		7C04A6082C446B4D00FBC649 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		7C1C08A92C31F2F000569B45 /* PauseTorrentIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PauseTorrentIntent.swift; sourceTree = "<group>"; };
+		C1A14FD12AABFE228F219E9C /* StartScheduledTorrentsIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartScheduledTorrentsIntent.swift; sourceTree = "<group>"; };
 		7C1C08AC2C31FEA000569B45 /* IntentsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentsService.swift; sourceTree = "<group>"; };
 		7C1CB72B2FDEC4E7000CCD0D /* RendererRouteMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RendererRouteMenuView.swift; sourceTree = "<group>"; };
 		7C1CB72F2FDED209000CCD0D /* CastTrustResponder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastTrustResponder.swift; sourceTree = "<group>"; };
@@ -517,6 +521,7 @@
 		D1A226F12AEF019400669D6D /* TorrentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TorrentService.swift; sourceTree = "<group>"; };
 		C1A030877432D1026706D7E8 /* TorrentService+Queue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TorrentService+Queue.swift"; sourceTree = "<group>"; };
 		C1A0575EC87A171AC826A6FC /* TorrentService+Recovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TorrentService+Recovery.swift"; sourceTree = "<group>"; };
+		C1A1A4C123B1612DD272D137 /* TorrentService+Schedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TorrentService+Schedule.swift"; sourceTree = "<group>"; };
 		D1A226F32AEF01B700669D6D /* LibTorrent.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = LibTorrent.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D1A226F72AEF04E200669D6D /* TorrentListViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TorrentListViewController.swift; sourceTree = "<group>"; };
 		D1A226F82AEF04E200669D6D /* TorrentListViewController.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = TorrentListViewController.xib; sourceTree = "<group>"; };
@@ -637,6 +642,7 @@
 			isa = PBXGroup;
 			children = (
 				7C1C08A92C31F2F000569B45 /* PauseTorrentIntent.swift */,
+				C1A14FD12AABFE228F219E9C /* StartScheduledTorrentsIntent.swift */,
 			);
 			path = Intents;
 			sourceTree = "<group>";
@@ -1114,6 +1120,7 @@
 				D1A226F12AEF019400669D6D /* TorrentService.swift */,
 				C1A030877432D1026706D7E8 /* TorrentService+Queue.swift */,
 				C1A0575EC87A171AC826A6FC /* TorrentService+Recovery.swift */,
+				C1A1A4C123B1612DD272D137 /* TorrentService+Schedule.swift */,
 			);
 			path = TorrentService;
 			sourceTree = "<group>";
@@ -1911,6 +1918,7 @@
 				D10257D22EE8644900201640 /* TorrentService.swift in Sources */,
 				C1A005DA846A32C3BB81E3C2 /* TorrentService+Queue.swift in Sources */,
 				C1A0E48478DCB74F21345D2C /* TorrentService+Recovery.swift in Sources */,
+				C1A11C17149D439536B3216F /* TorrentService+Schedule.swift in Sources */,
 				D10257D32EE8647400201640 /* PreferencesStorage.swift in Sources */,
 				D10257D42EE8648900201640 /* CombineLatest.swift in Sources */,
 				D10257CF2EE8638800201640 /* StorageModel+Extensions.swift in Sources */,
@@ -2012,6 +2020,7 @@
 				D1A226F22AEF019400669D6D /* TorrentService.swift in Sources */,
 				C1A09B62179273C8EB5BB682 /* TorrentService+Queue.swift in Sources */,
 				C1A0CE8038A39D5E0853964B /* TorrentService+Recovery.swift in Sources */,
+				C1A1DAEEB975729FAE923D5A /* TorrentService+Schedule.swift in Sources */,
 				7CB6F6CE2BD82BAB00D0813B /* FileSharingPreferencesViewModel.swift in Sources */,
 				7CFEBE942BC441A20013233F /* RssDetailsViewModel.swift in Sources */,
 				D1352D2E2BBD6ED300104E7B /* UIColor+Hex.swift in Sources */,
@@ -2057,6 +2066,7 @@
 				D11138572AF976CE008907F7 /* TorrentAddDirectoryItemViewModel.swift in Sources */,
 				D1FFC9652C38136600233C2F /* URL+Extensions.swift in Sources */,
 				7C1C08AB2C31F31900569B45 /* PauseTorrentIntent.swift in Sources */,
+				C1A1B0EB53F16947CCF25EC8 /* StartScheduledTorrentsIntent.swift in Sources */,
 				7CB831202D19750F005F3F42 /* CellularNotAllowedOverlay.swift in Sources */,
 				D1CAB8872AF3B52E00EB6AFF /* ToggleCellViewModel.swift in Sources */,
 				D11BE5492AFBA03D00780C1B /* PRButtonView.swift in Sources */,

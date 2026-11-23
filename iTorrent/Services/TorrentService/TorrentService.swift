@@ -194,6 +194,7 @@ private extension TorrentService {
         DispatchQueue.main.async { [self] in
             setupQueue()
             setupConnectionRecovery()
+            setupSchedule()
         }
     }
 

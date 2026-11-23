@@ -91,6 +91,24 @@ private extension PreferencesViewModel {
             PRSwitchViewModel(with: .init(title: %"preferences.seeding.stopOnFinish", value: preferences.$stopSeedingOnFinish.binding, isDangerous: true))
         })
 
+        sections.append(.init(id: "schedule", header: PreferencesViewModel.scheduleHeader, footer: PreferencesViewModel.scheduleFooter) {
+            PRSwitchViewModel(with: .init(title: PreferencesViewModel.scheduleEnabledTitle, value: preferences.$isScheduleEnabled.binding))
+            PRButtonViewModel(with: .init(title: PreferencesViewModel.scheduleStartTitle, value: preferences.$scheduleStartMinutes.map { TorrentService.scheduleTimeString($0) }.eraseToAnyPublisher()) { [unowned self] in
+                textInput(title: PreferencesViewModel.scheduleStartTitle, message: PreferencesViewModel.scheduleTimeHint, placeholder: "01:00", defaultValue: TorrentService.scheduleTimeString(preferences.scheduleStartMinutes), type: .numbersAndPunctuation) { [unowned self] res in
+                    dismissSelection.send()
+                    guard let res, let minutes = TorrentService.scheduleMinutes(from: res) else { return }
+                    preferences.scheduleStartMinutes = minutes
+                }
+            })
+            PRButtonViewModel(with: .init(title: PreferencesViewModel.scheduleStopTitle, value: preferences.$scheduleStopMinutes.map { TorrentService.scheduleTimeString($0) }.eraseToAnyPublisher()) { [unowned self] in
+                textInput(title: PreferencesViewModel.scheduleStopTitle, message: PreferencesViewModel.scheduleTimeHint, placeholder: "07:00", defaultValue: TorrentService.scheduleTimeString(preferences.scheduleStopMinutes), type: .numbersAndPunctuation) { [unowned self] res in
+                    dismissSelection.send()
+                    guard let res, let minutes = TorrentService.scheduleMinutes(from: res) else { return }
+                    preferences.scheduleStopMinutes = minutes
+                }
+            })
+        })
+
         sections.append(.init(id: "torrentQueueLimits", header: %"preferences.queueLimits") {
             PRButtonViewModel(with: .init(title: %"preferences.queueLimits.active", value: preferences.$maxActiveTorrents.map { $0 == 0 ? %"preferences.speedLimits.unlimited" : "\($0)" }.eraseToAnyPublisher()) { [unowned self] in
                 textInput(title: %"preferences.queueLimits.active", placeholder: %"preferences.speedLimits.unlimited", defaultValue: "\(preferences.maxActiveTorrents)", type: .numberPad) { [unowned self] res in
@@ -268,5 +286,32 @@ private extension PreferencesViewModel {
 
     static var slowThresholdMessage: String {
         String(localized: "preferences.queueLimits.slowThreshold.message", defaultValue: "In KB/s. Downloads slower than this don't take a download slot, so the next queued torrent starts next to them. 0 turns this off.")
+    }
+}
+
+// MARK: - Schedule
+private extension PreferencesViewModel {
+    static var scheduleHeader: String {
+        String(localized: "preferences.schedule", defaultValue: "Schedule")
+    }
+
+    static var scheduleEnabledTitle: String {
+        String(localized: "preferences.schedule.enabled", defaultValue: "Daily Schedule")
+    }
+
+    static var scheduleStartTitle: String {
+        String(localized: "preferences.schedule.start", defaultValue: "Start Time")
+    }
+
+    static var scheduleStopTitle: String {
+        String(localized: "preferences.schedule.stop", defaultValue: "Stop Time")
+    }
+
+    static var scheduleTimeHint: String {
+        String(localized: "preferences.schedule.timeHint", defaultValue: "24-hour time, for example 01:00 or 23:30")
+    }
+
+    static var scheduleFooter: String {
+        String(localized: "preferences.schedule.footer", defaultValue: "Every day at the start time, all paused torrents that aren't finished start (following the queue limits). At the stop time, all torrents pause. You can still start torrents manually at any time. iOS can't wake iTorrent by itself: add a Shortcuts automation (Time of Day → Start Scheduled Torrents) so downloads start on time.")
     }
 }

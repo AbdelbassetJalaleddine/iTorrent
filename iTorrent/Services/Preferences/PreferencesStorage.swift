@@ -70,6 +70,14 @@ class PreferencesStorage: Resolvable {
     /// KB/s. Downloads slower than this do not take a queue slot. 0 = off.
     @UserDefaultItem("preferencesSlowTorrentThreshold", 10) var slowTorrentThreshold: Int
 
+    // Daily schedule (times are minutes since midnight)
+    @UserDefaultItem("preferencesScheduleEnabled", false) var isScheduleEnabled: Bool
+    @UserDefaultItem("preferencesScheduleStart", 60) var scheduleStartMinutes: Int
+    @UserDefaultItem("preferencesScheduleStop", 420) var scheduleStopMinutes: Int
+    @UserDefaultItem("preferencesScheduleHandledStart", nil) var scheduleHandledStart: Date?
+    @UserDefaultItem("preferencesScheduleHandledStop", nil) var scheduleHandledStop: Date?
+    @UserDefaultItem("preferencesScheduleSavedOrder", []) var scheduleSavedOrder: [String]
+
     @UserDefaultItem("preferencesMaxUploadSpeed", 0) var maxUploadSpeed: UInt
     @UserDefaultItem("preferencesMaxDownloadSpeed", 0) var maxDownloadSpeed: UInt
 
