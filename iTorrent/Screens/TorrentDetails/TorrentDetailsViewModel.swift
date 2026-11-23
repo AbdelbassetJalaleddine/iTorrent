@@ -245,7 +245,7 @@ private extension TorrentDetailsViewModel {
         canPause = snapshot.canPause
         storageError = friendlyState == .storageError
 
-        stateModel.detail = snapshot.isQueued ? TorrentHandle.queuedStateName : friendlyState.name
+        stateModel.detail = snapshot.isQueued ? TorrentHandle.queuedStateName(position: snapshot.queuePosition) : friendlyState.name
 
         downloadModel.detail = "\(snapshot.downloadRate.bitrateToHumanReadable)/s"
         uploadModel.detail = "\(snapshot.uploadRate.bitrateToHumanReadable)/s"

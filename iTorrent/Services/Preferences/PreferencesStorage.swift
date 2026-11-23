@@ -67,6 +67,8 @@ class PreferencesStorage: Resolvable {
     @UserDefaultItem("preferencesMaxActiveTorrents", 4) var maxActiveTorrents: Int
     @UserDefaultItem("preferencesMaxDownloadingTorrents", 3) var maxDownloadingTorrents: Int
     @UserDefaultItem("preferencesMaxUploadingTorrents", 3) var maxUploadingTorrents: Int
+    /// KB/s. Downloads slower than this do not take a queue slot. 0 = off.
+    @UserDefaultItem("preferencesSlowTorrentThreshold", 10) var slowTorrentThreshold: Int
 
     @UserDefaultItem("preferencesMaxUploadSpeed", 0) var maxUploadSpeed: UInt
     @UserDefaultItem("preferencesMaxDownloadSpeed", 0) var maxDownloadSpeed: UInt

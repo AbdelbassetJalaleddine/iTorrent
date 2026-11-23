@@ -153,6 +153,7 @@ class TorrentListViewController<VM: TorrentListViewModel>: BaseViewController<VM
                     return UIMenu(title: torrentHandle.snapshot.name, children: [
                         start,
                         pause,
+                        TorrentListViewController.queueOrderMenu(for: [torrentHandle], includeStepMoves: true),
                         UIMenu(options: .displayInline,
                                children: [delete])
                     ])
@@ -174,7 +175,8 @@ class TorrentListViewController<VM: TorrentListViewModel>: BaseViewController<VM
 
                     return UIMenu(children: [
                         start,
-                        pause
+                        pause,
+                        TorrentListViewController.queueOrderMenu(for: handles, includeStepMoves: false)
 //                        UIMenu(options: .displayInline,
 //                               children: [delete])
                     ])
@@ -487,5 +489,31 @@ extension TorrentHandle.State {
             // Custom state for storage error
             .storageError
         ]
+    }
+}
+
+// MARK: - Queue order
+private extension TorrentListViewController {
+    /// "Move to Top / Up / Down / Bottom" for queued torrents (hidden when none are queued).
+    static func queueOrderMenu(for handles: [TorrentHandle], includeStepMoves: Bool) -> UIMenu {
+        let queued = handles.filter { $0.snapshot.isQueued }
+        guard !queued.isEmpty else { return UIMenu(options: .displayInline, children: []) }
+
+        func action(_ title: String, _ image: String, _ move: TorrentService.QueueMove) -> UIAction {
+            UIAction(title: title, image: UIImage(systemName: image)) { _ in
+                TorrentService.shared.moveInQueue(queued, move)
+            }
+        }
+
+        var children: [UIMenuElement] = [
+            action(String(localized: "queue.move.top", defaultValue: "Move to Top of Queue"), "arrow.up.to.line", .top)
+        ]
+        if includeStepMoves {
+            children.append(action(String(localized: "queue.move.up", defaultValue: "Move Up in Queue"), "arrow.up", .up))
+            children.append(action(String(localized: "queue.move.down", defaultValue: "Move Down in Queue"), "arrow.down", .down))
+        }
+        children.append(action(String(localized: "queue.move.bottom", defaultValue: "Move to Bottom of Queue"), "arrow.down.to.line", .bottom))
+
+        return UIMenu(options: .displayInline, children: children)
     }
 }

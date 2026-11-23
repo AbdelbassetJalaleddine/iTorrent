@@ -60,6 +60,9 @@ class TorrentService: @unchecked Sendable, ObservableObject {
     var pendingStarts: [String: Date] = [:]
     var pendingPauses: [String: Date] = [:]
     var isProcessingQueue = false
+    var startedAt: [String: Date] = [:]
+    var slowHashes: Set<String> = []
+    var speedTransitionSince: [String: Date] = [:]
 
     // MARK: Connection recovery state (see TorrentService+Recovery.swift)
     var wasDisconnected = false

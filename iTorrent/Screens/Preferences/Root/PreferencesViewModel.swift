@@ -106,6 +106,13 @@ private extension PreferencesViewModel {
                     preferences.maxDownloadingTorrents = Int(res) ?? 0
                 }
             })
+            PRButtonViewModel(with: .init(title: PreferencesViewModel.slowThresholdTitle, value: preferences.$slowTorrentThreshold.map { $0 <= 0 ? PreferencesViewModel.slowThresholdOff : "\($0) KB/s" }.eraseToAnyPublisher()) { [unowned self] in
+                textInput(title: PreferencesViewModel.slowThresholdTitle, message: PreferencesViewModel.slowThresholdMessage, placeholder: PreferencesViewModel.slowThresholdOff, defaultValue: "\(preferences.slowTorrentThreshold)", type: .numberPad) { [unowned self] res in
+                    dismissSelection.send()
+                    guard let res else { return }
+                    preferences.slowTorrentThreshold = max(0, Int(res) ?? 0)
+                }
+            })
             PRButtonViewModel(with: .init(title: %"preferences.queueLimits.uploading", value: preferences.$maxUploadingTorrents.map { $0 == 0 ? %"preferences.speedLimits.unlimited" : "\($0)" }.eraseToAnyPublisher()) { [unowned self] in
                 textInput(title: %"preferences.queueLimits.uploading", placeholder: %"preferences.speedLimits.unlimited", defaultValue: "\(preferences.maxUploadingTorrents)", type: .numberPad) { [unowned self] res in
                     dismissSelection.send()
@@ -246,5 +253,20 @@ private extension BackgroundService.Mode {
         case .location:
             return %"preferences.background.mode.location"
         }
+    }
+}
+
+// MARK: - Slow torrents
+private extension PreferencesViewModel {
+    static var slowThresholdTitle: String {
+        String(localized: "preferences.queueLimits.slowThreshold", defaultValue: "Slow torrent speed")
+    }
+
+    static var slowThresholdOff: String {
+        String(localized: "preferences.queueLimits.slowThreshold.off", defaultValue: "Off")
+    }
+
+    static var slowThresholdMessage: String {
+        String(localized: "preferences.queueLimits.slowThreshold.message", defaultValue: "In KB/s. Downloads slower than this don't take a download slot, so the next queued torrent starts next to them. 0 turns this off.")
     }
 }
