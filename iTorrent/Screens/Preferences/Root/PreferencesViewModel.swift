@@ -166,6 +166,9 @@ private extension PreferencesViewModel {
             PRButtonViewModel(with: .init(id: "filesharingbutton", title: %"preferences", accessories: [.disclosureIndicator()]) { [unowned self] in
                 navigate(to: FileSharingPreferencesViewModel.self, by: .show)
             })
+            PRButtonViewModel(with: .init(id: "shizukubutton", title: String(localized: "shizuku.title", defaultValue: "Android TV (Shizuku)"), accessories: [.disclosureIndicator()]) { [unowned self] in
+                navigate(to: ShizukuPreferencesViewModel.self, by: .show)
+            })
         })
 
         sections.append(.init(id: "network", header: %"preferences.network") {

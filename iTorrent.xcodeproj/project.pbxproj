@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A0DB00000000000000000004 /* ShizukuPreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0DB00000000000000000003 /* ShizukuPreferencesView.swift */; };
+		A0DB00000000000000000002 /* AdbClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0DB00000000000000000001 /* AdbClient.swift */; };
 		C0DE000130B0000000000001 /* OneShotCallback.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE000130B0000000000002 /* OneShotCallback.swift */; };
 		7C013DE32C28AA3C0026A11B /* sound.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 7C013DE22C28A97F0026A11B /* sound.m4a */; };
 		7C013DE42C2F38AA0026A11B /* LocalizationAttribute.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1352D1D2BBC2F7F00104E7B /* LocalizationAttribute.swift */; };
@@ -337,6 +339,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A0DB00000000000000000003 /* ShizukuPreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ShizukuPreferencesView.swift; path = iTorrent/Screens/Preferences/AndroidTV/ShizukuPreferencesView.swift; sourceTree = SOURCE_ROOT; };
+		A0DB00000000000000000001 /* AdbClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AdbClient.swift; path = iTorrent/Services/Adb/AdbClient.swift; sourceTree = SOURCE_ROOT; };
 		C0DE000130B0000000000002 /* OneShotCallback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OneShotCallback.swift; sourceTree = "<group>"; };
 		7C013DE22C28A97F0026A11B /* sound.m4a */ = {isa = PBXFileReference; lastKnownFileType = file; path = sound.m4a; sourceTree = "<group>"; };
 		7C04A6082C446B4D00FBC649 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
@@ -1450,6 +1454,7 @@
 				D11333B32AF19C3400FA017E /* TorrentService */,
 				D1AA00CC2AFA8B0300B74629 /* Preferences */,
 				7C5FBE182BBC91E70069E5A0 /* NetworkMonitoringService.swift */,
+				A0DB00000000000000000001 /* AdbClient.swift */,
 				D1352D2B2BBD6E0E00104E7B /* MemorySpaceManager.swift */,
 				D1352D3B2BBD7F8800104E7B /* TorrentMonitoringService.swift */,
 			);
@@ -1591,6 +1596,7 @@
 			children = (
 				D1BB07442C9869B900981D5F /* TrackersListDetailsPreferencesView.swift */,
 				D1BB07422C985EAE00981D5F /* TrackersListPreferencesView.swift */,
+				A0DB00000000000000000003 /* ShizukuPreferencesView.swift */,
 			);
 			path = TrackersList;
 			sourceTree = "<group>";
@@ -2022,6 +2028,8 @@
 				D173D9DE2BC024DD00E4F9EB /* UISwitchWithMenu.swift in Sources */,
 				7CAD30202BC34BCE00592990 /* RssFeedProvider.swift in Sources */,
 				C1A2670EAE679F02E8D28A79 /* RssAutoDownloader.swift in Sources */,
+				A0DB00000000000000000004 /* ShizukuPreferencesView.swift in Sources */,
+				A0DB00000000000000000002 /* AdbClient.swift in Sources */,
 				D1EFCD142AF5A59800D33A7A /* UIViewController+Pop.swift in Sources */,
 				D11BE54B2AFBA06900780C1B /* PRButtonViewModel.swift in Sources */,
 				D1A226F22AEF019400669D6D /* TorrentService.swift in Sources */,
