@@ -51,7 +51,9 @@ class TorrentService: @unchecked Sendable, ObservableObject {
         configureOpenSSLCerts()
         var settings = Session.Settings()
         print("Working directory: \(Self.downloadPath.path())")
-        return .init(Self.downloadPath, torrentsPath: Self.torrentPath, fastResumePath: Self.fastResumePath, settings: .fromPreferences(with: []), storages: PreferencesStorage.shared.storageScopes)
+        // Start libtorrent on the right addresses right away
+        network.waitForFirstPathUpdate()
+        return .init(Self.downloadPath, torrentsPath: Self.torrentPath, fastResumePath: Self.fastResumePath, settings: .fromPreferences(interfaceNames: network.allowedInterfaceNames), storages: PreferencesStorage.shared.storageScopes)
     }()
 
     let disposeBag = DisposeBag()
@@ -182,13 +184,14 @@ private extension TorrentService {
         disposeBag.bind {
             Publishers.combineLatest(
                 preferences.settingsUpdatePublisher,
-                network.$availableInterfaces
-            ) { _, interfaces in
-                interfaces
+                // Changes when the allowed networks or their IP addresses change
+                network.$allowedInterfaceNames
+            ) { _, names in
+                names
             }
-            .sink { [unowned self] interfaces in
+            .sink { [unowned self] names in
                 DispatchQueue.main.async { [self] in // Need delay to complete settings apply
-                    session.settings = Session.Settings.fromPreferences(with: interfaces)
+                    session.settings = Session.Settings.fromPreferences(interfaceNames: names)
                 }
             }
 
