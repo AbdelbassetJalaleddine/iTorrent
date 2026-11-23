@@ -289,7 +289,7 @@ private extension PreferencesViewModel {
     }
 
     static var slowThresholdMessage: String {
-        String(localized: "preferences.queueLimits.slowThreshold.message", defaultValue: "In KB/s. Downloads slower than this don't take a download slot, so the next queued torrent starts next to them. 0 turns this off.")
+        String(localized: "preferences.queueLimits.slowThreshold.message", defaultValue: "In KB/s. Downloads slower than this don't take a download slot, so the next queued torrent starts next to them. They keep running and take a slot again if they speed up. 0 turns this off.")
     }
 }
 

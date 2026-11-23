@@ -13,8 +13,10 @@
 //
 //  Slow torrents: a download that stays below the "slow torrent" speed for a
 //  while does not take up a slot, so the next queued torrent can start next
-//  to it. When the higher priority torrent becomes fast again, extra
-//  torrents that are slow go back into the queue (fast ones keep going).
+//  to it. Slow torrents keep running (there is no limit on how many), so one
+//  that suddenly finds a seeder speeds up right away. When it becomes fast
+//  again it takes a slot again; running torrents are never stopped for that,
+//  but no new torrent starts until the fast ones are below the limit.
 //
 
 import Combine
@@ -158,8 +160,6 @@ extension TorrentService {
         // 2. Count what is running.
         let maxActive = preferences.maxActiveTorrents
         let maxDownloading = preferences.maxDownloadingTorrents
-        // Slow downloads do not use a slot, but never run more than twice the limit.
-        let maxRunningDownloads = maxDownloading > 0 ? max(maxDownloading * 2, maxDownloading + 1) : 0
 
         func fits(_ count: Int, _ limit: Int) -> Bool {
             limit <= 0 || count < limit
@@ -176,8 +176,8 @@ extension TorrentService {
             }
         }
 
+        // Slow downloads do not use a slot (and there is no limit on how many run).
         var fastDownloads = runningDownloads.count - slow.count
-        var totalDownloads = runningDownloads.count
         var runningSeeds: [TorrentHandle] = []
         for (hash, handle) in handlesByHash where isRunning(hash) && !handle.snapshot.needsDownload {
             if pendingStarts[hash] == nil { runningSeeds.append(handle) }
@@ -186,18 +186,9 @@ extension TorrentService {
             !(handlesByHash[hash]?.snapshot.needsDownload ?? true)
         }.count
 
-        // 3. Enough fast downloads: put slow extra torrents back into the queue.
-        //    The first `maxDownloading` torrents by priority always keep running.
-        var toRequeue: [TorrentHandle] = []
-        if maxDownloading > 0, fastDownloads >= maxDownloading {
-            for (rank, hash) in runningDownloads.enumerated() where rank >= maxDownloading {
-                guard slow.contains(hash), pendingStarts[hash] == nil, let handle = handlesByHash[hash] else { continue }
-                toRequeue.append(handle)
-                totalDownloads -= 1
-            }
-        }
-
-        // 4. Start queued torrents in order while there is room.
+        // 3. Start queued torrents in order while there is room. Slow torrents
+        //    keep running, so one that finds a seeder speeds up right away; it
+        //    then counts as a slot again (nothing is stopped for that).
         var toStart: [TorrentHandle] = []
         var seedsToRequeue: [TorrentHandle] = []
         for hash in store.queuedItems {
@@ -206,7 +197,7 @@ extension TorrentService {
             if snapshot.isStorageMissing { continue }
 
             if snapshot.needsDownload {
-                guard fits(fastDownloads, maxDownloading), fits(totalDownloads, maxRunningDownloads) else { continue }
+                guard fits(fastDownloads, maxDownloading) else { continue }
                 if !fits(active, maxActive) {
                     // Downloads have priority over seeding: put a seeding
                     // torrent back into the queue to free an active slot.
@@ -215,7 +206,6 @@ extension TorrentService {
                     active -= 1
                 }
                 fastDownloads += 1 // counts as fast during its start grace period
-                totalDownloads += 1
             } else {
                 guard fits(active, maxActive) else { continue }
             }
@@ -224,8 +214,8 @@ extension TorrentService {
             toStart.append(handle)
         }
 
-        // 5. Apply.
-        for handle in toRequeue + seedsToRequeue {
+        // 4. Apply.
+        for handle in seedsToRequeue {
             pauseTracked(handle)
             store.enqueue(handle.snapshot.infoHashes.best.hex)
             handle.__unthrottledUpdatePublisher.send()
@@ -236,7 +226,7 @@ extension TorrentService {
             handle.__unthrottledUpdatePublisher.send()
         }
 
-        if orderChanged || !toStart.isEmpty || !toRequeue.isEmpty || !seedsToRequeue.isEmpty {
+        if orderChanged || !toStart.isEmpty || !seedsToRequeue.isEmpty {
             refreshQueuedTorrents()
         }
     }
