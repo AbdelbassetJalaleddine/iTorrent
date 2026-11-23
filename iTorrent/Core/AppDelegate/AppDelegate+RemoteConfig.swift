@@ -6,20 +6,20 @@
 //
 
 import UIKit
-#if canImport(FirebaseRemoteConfig)
+#if canImport(FirebaseRemoteConfig) && !NO_FIREBASE
 import FirebaseRemoteConfig
 let remoteConfig = RemoteConfig.remoteConfig()
 #endif
 
 extension AppDelegate {
     func registerRemoteConfig() {
-#if canImport(FirebaseRemoteConfig)
+#if canImport(FirebaseRemoteConfig) && !NO_FIREBASE
         registerKillSwitch()
 #endif
     }
 }
 
-#if canImport(FirebaseRemoteConfig)
+#if canImport(FirebaseRemoteConfig) && !NO_FIREBASE
 private extension AppDelegate {
     func registerKillSwitch() {
         remoteConfig.fetchAndActivate { [unowned self] status, error in

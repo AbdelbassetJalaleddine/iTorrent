@@ -9,7 +9,7 @@ import Combine
 @preconcurrency import LibTorrent
 import MvvmFoundation
 import UIKit
-#if canImport(FirebaseCrashlytics)
+#if canImport(FirebaseCrashlytics) && !NO_FIREBASE
 import FirebaseCrashlytics
 #endif
 
@@ -145,7 +145,7 @@ extension TorrentService: SessionDelegate {
     }
 
     func torrentManager(_ manager: Session, didErrorOccur error: Error) {
-        #if canImport(FirebaseCrashlytics)
+        #if canImport(FirebaseCrashlytics) && !NO_FIREBASE
         Crashlytics.crashlytics().record(error: error)
         #else
         print("LibTorrent error: \(error)")
