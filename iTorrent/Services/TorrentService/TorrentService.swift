@@ -127,6 +127,29 @@ extension TorrentService {
         handles.forEach { $0.reload() }
         return true
     }
+
+    /// Moves every torrent that is somewhere else to `storage` (nil = the
+    /// internal "iTorrent Default" folder). Progress is kept and running
+    /// torrents continue in the new place. Torrents whose current storage
+    /// can't be reached are skipped. Returns how many moves were started.
+    @discardableResult
+    func moveAllTorrents(to storage: UUID?) -> Int {
+        if let storage {
+            guard let model = preferences.storageScopes[storage], model.allowed else { return 0 }
+        }
+
+        var started = 0
+        for handle in torrents.values {
+            let snapshot = handle.snapshot
+            guard snapshot.isValid,
+                  snapshot.storageUUID != storage,
+                  !snapshot.isStorageMissing
+            else { continue }
+            handle.moveStorage(to: storage)
+            started += 1
+        }
+        return started
+    }
 }
 
 // MARK: - SessionDelegate
@@ -209,12 +232,11 @@ private extension TorrentService {
 
     func resolveStorageScopes() {
         preferences.storageScopes.values.forEach { scope in
+            // The default storage is kept even when it can't be reached right
+            // now (e.g. a drive that isn't connected): new torrents must only
+            // download there, not silently fall back to the internal folder.
+            // They show a storage error until the storage is available again.
             scope.resolveSequrityScopes()
-
-            // If storage is not allowed and it used as default, reset default
-            if !scope.allowed, preferences.defaultStorage == scope.uuid {
-                preferences.defaultStorage = nil
-            }
         }
     }
 }
