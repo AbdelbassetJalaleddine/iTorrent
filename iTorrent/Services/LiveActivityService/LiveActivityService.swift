@@ -136,7 +136,7 @@ private extension LiveActivityService {
             for activity in Activity<ProgressWidgetAttributes>.activities {
                 if activity.attributes.hash == updateModel.oldSnapshot.infoHashes.best.hex {
                     if let snapshot = updateModel.handle?.snapshot,
-                        snapshot.friendlyState.shouldShowLiveActivity
+                        await shouldShowLiveActivity(for: snapshot)
                     {
                         await update(activity, with: snapshot.toLiveActivityState)
                         return
@@ -148,11 +148,20 @@ private extension LiveActivityService {
             }
 
             if let snapshot = updateModel.handle?.snapshot,
-               snapshot.friendlyState.shouldShowLiveActivity
+               await shouldShowLiveActivity(for: snapshot)
             {
                 showLiveActivity(with: snapshot)
             }
         }
+    }
+
+    /// Downloads that the queue counts as slow (below the "Slow torrent speed"
+    /// setting) are not shown; they come back once they speed up again.
+    func shouldShowLiveActivity(for snapshot: TorrentHandle.Snapshot) async -> Bool {
+        guard snapshot.friendlyState.shouldShowLiveActivity else { return false }
+        let hash = snapshot.infoHashes.best.hex
+        let isSlow = await MainActor.run { TorrentService.shared.slowHashes.contains(hash) }
+        return !isSlow
     }
 
     @available(iOS 16.1, *)

@@ -73,6 +73,7 @@ class SceneDelegate: MvvmSceneDelegate {
         router.register(BasePreferencesViewController<FileSharingPreferencesViewModel>.self)
         router.register(PreferencesSectionGroupingViewController.self)
         router.register(PatreonPreferencesViewController.self)
+        router.register(BaseHostingViewController<ShizukuPreferencesView<ShizukuPreferencesViewModel>>.self)
 
         router.register(RssListViewController.self)
         router.register(RssChannelViewController.self)

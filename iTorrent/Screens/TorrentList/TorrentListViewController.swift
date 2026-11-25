@@ -44,6 +44,8 @@ class TorrentListViewController<VM: TorrentListViewModel>: BaseViewController<VM
     private let playButton = UIBarButtonItem()
     private let pauseButton = UIBarButtonItem()
     private let rehashButton = UIBarButtonItem()
+    private let moveUpButton = UIBarButtonItem()
+    private let moveDownButton = UIBarButtonItem()
     private let deleteButton = UIBarButtonItem()
 
     private lazy var delegates = Delegates(parent: self)
@@ -64,6 +66,10 @@ class TorrentListViewController<VM: TorrentListViewModel>: BaseViewController<VM
                 pauseButton,
                 fixedSpacing,
                 rehashButton,
+                fixedSpacing,
+                moveUpButton,
+                fixedSpacing,
+                moveDownButton,
                 .flexibleSpace(),
                 deleteButton
             ].compactMap { $0 } :
@@ -110,6 +116,15 @@ class TorrentListViewController<VM: TorrentListViewModel>: BaseViewController<VM
             viewModel.rehashAllSelected(at: collectionView.indexPathsForSelectedItems ?? [])
         })
 
+        // Change the queue position of the selected queued torrents
+        moveUpButton.primaryAction = .init(title: String(localized: "queue.move.up", defaultValue: "Move Up in Queue"), image: .init(systemName: "arrow.up"), handler: { [unowned self] _ in
+            TorrentService.shared.moveInQueue(selectedTorrentHandles, .up)
+        })
+
+        moveDownButton.primaryAction = .init(title: String(localized: "queue.move.down", defaultValue: "Move Down in Queue"), image: .init(systemName: "arrow.down"), handler: { [unowned self] _ in
+            TorrentService.shared.moveInQueue(selectedTorrentHandles, .down)
+        })
+
         deleteButton.primaryAction = .init(title: %"common.delete", image: .init(systemName: "trash"), handler: { [unowned self] _ in
             viewModel.deleteAllSelected(at: collectionView.indexPathsForSelectedItems ?? [])
         })
@@ -141,10 +156,10 @@ class TorrentListViewController<VM: TorrentListViewModel>: BaseViewController<VM
                     TorrentDetailsViewModel.resolveVC(with: torrentHandle)
                 } actionProvider: { _ in
                     let start = UIAction(title: %"details.start", image: .init(systemName: "play.fill"), attributes: torrentHandle.snapshot.canResume ? [] : .hidden, handler: { _ in
-                        torrentHandle.resume()
+                        TorrentService.shared.start(torrentHandle)
                     })
                     let pause = UIAction(title: %"details.pause", image: .init(systemName: "pause.fill"), attributes: torrentHandle.snapshot.canPause ? [] : .hidden, handler: { _ in
-                        torrentHandle.pause()
+                        TorrentService.shared.pause(torrentHandle)
                     })
                     let delete = UIAction(title: %"common.delete", image: UIImage(systemName: "trash.fill"), attributes: .destructive) { [unowned self] _ in
                         viewModel.removeTorrent(torrentHandle)
@@ -153,6 +168,7 @@ class TorrentListViewController<VM: TorrentListViewModel>: BaseViewController<VM
                     return UIMenu(title: torrentHandle.snapshot.name, children: [
                         start,
                         pause,
+                        TorrentListViewController.queueOrderMenu(for: [torrentHandle], includeStepMoves: true),
                         UIMenu(options: .displayInline,
                                children: [delete])
                     ])
@@ -163,10 +179,10 @@ class TorrentListViewController<VM: TorrentListViewModel>: BaseViewController<VM
                     nil
                 } actionProvider: { _ in
                     let start = UIAction(title: %"details.start", image: .init(systemName: "play.fill"), handler: { _ in
-                        handles.forEach { $0.resume() }
+                        TorrentService.shared.start(handles.filter { $0.snapshot.canResume })
                     })
                     let pause = UIAction(title: %"details.pause", image: .init(systemName: "pause.fill"), attributes: handles.contains(where: { $0.snapshot.canPause }) ? [] : .hidden, handler: { _ in
-                        handles.forEach { $0.pause() }
+                        TorrentService.shared.pause(handles)
                     })
 //                    let delete = UIAction(title: %"common.delete", image: UIImage(systemName: "trash.fill"), attributes: .destructive) { [unowned self] _ in
 //                        viewModel.removeTorrent(torrentHandle)
@@ -174,7 +190,8 @@ class TorrentListViewController<VM: TorrentListViewModel>: BaseViewController<VM
 
                     return UIMenu(children: [
                         start,
-                        pause
+                        pause,
+                        TorrentListViewController.queueOrderMenu(for: handles, includeStepMoves: false)
 //                        UIMenu(options: .displayInline,
 //                               children: [delete])
                     ])
@@ -321,6 +338,9 @@ private extension TorrentListViewController {
                 playButton.isEnabled = torrentHandles.contains(where: { $0.snapshot.isPaused })
                 pauseButton.isEnabled = torrentHandles.contains(where: { !$0.snapshot.isPaused })
                 rehashButton.isEnabled = !torrentHandles.isEmpty
+                let hasQueued = torrentHandles.contains(where: { $0.snapshot.isQueued })
+                moveUpButton.isEnabled = hasQueued
+                moveDownButton.isEnabled = hasQueued
                 deleteButton.isEnabled = !torrentHandles.isEmpty
             }
 
@@ -469,6 +489,8 @@ private extension TorrentListViewModel.Sort {
             return %"list.sort.addedDate"
         case .size:
             return %"list.sort.size"
+        case .queueOrder:
+            return String(localized: "list.sort.queueOrder", defaultValue: "Queue Order")
         }
     }
 }
@@ -487,5 +509,42 @@ extension TorrentHandle.State {
             // Custom state for storage error
             .storageError
         ]
+    }
+}
+
+// MARK: - Queue order
+private extension TorrentListViewController {
+    /// "Move to Top / Up / Down / Bottom" for queued torrents (hidden when none are queued).
+    static func queueOrderMenu(for handles: [TorrentHandle], includeStepMoves: Bool) -> UIMenu {
+        let queued = handles.filter { $0.snapshot.isQueued }
+        guard !queued.isEmpty else { return UIMenu(options: .displayInline, children: []) }
+
+        func action(_ title: String, _ image: String, _ move: TorrentService.QueueMove) -> UIAction {
+            UIAction(title: title, image: UIImage(systemName: image)) { _ in
+                TorrentService.shared.moveInQueue(queued, move)
+            }
+        }
+
+        var children: [UIMenuElement] = [
+            action(String(localized: "queue.move.top", defaultValue: "Move to Top of Queue"), "arrow.up.to.line", .top)
+        ]
+        if includeStepMoves {
+            children.append(action(String(localized: "queue.move.up", defaultValue: "Move Up in Queue"), "arrow.up", .up))
+            children.append(action(String(localized: "queue.move.down", defaultValue: "Move Down in Queue"), "arrow.down", .down))
+        }
+        children.append(action(String(localized: "queue.move.bottom", defaultValue: "Move to Bottom of Queue"), "arrow.down.to.line", .bottom))
+
+        return UIMenu(options: .displayInline, children: children)
+    }
+}
+
+private extension TorrentListViewController {
+    var selectedTorrentHandles: [TorrentHandle] {
+        (collectionView.indexPathsForSelectedItems ?? []).compactMap { indexPath in
+            guard viewModel.sections.indices.contains(indexPath.section),
+                  viewModel.sections[indexPath.section].items.indices.contains(indexPath.item)
+            else { return nil }
+            return (viewModel.sections[indexPath.section].items[indexPath.item] as? TorrentListItemViewModel)?.torrentHandle
+        }
     }
 }

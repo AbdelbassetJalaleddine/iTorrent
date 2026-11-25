@@ -67,6 +67,16 @@ class PreferencesStorage: Resolvable {
     @UserDefaultItem("preferencesMaxActiveTorrents", 4) var maxActiveTorrents: Int
     @UserDefaultItem("preferencesMaxDownloadingTorrents", 3) var maxDownloadingTorrents: Int
     @UserDefaultItem("preferencesMaxUploadingTorrents", 3) var maxUploadingTorrents: Int
+    /// KB/s. Downloads slower than this do not take a queue slot. 0 = off.
+    @UserDefaultItem("preferencesSlowTorrentThreshold", 10) var slowTorrentThreshold: Int
+
+    // Daily schedule (times are minutes since midnight)
+    @UserDefaultItem("preferencesScheduleEnabled", false) var isScheduleEnabled: Bool
+    @UserDefaultItem("preferencesScheduleStart", 60) var scheduleStartMinutes: Int
+    @UserDefaultItem("preferencesScheduleStop", 420) var scheduleStopMinutes: Int
+    @UserDefaultItem("preferencesScheduleHandledStart", nil) var scheduleHandledStart: Date?
+    @UserDefaultItem("preferencesScheduleHandledStop", nil) var scheduleHandledStop: Date?
+    @UserDefaultItem("preferencesScheduleSavedOrder", []) var scheduleSavedOrder: [String]
 
     @UserDefaultItem("preferencesMaxUploadSpeed", 0) var maxUploadSpeed: UInt
     @UserDefaultItem("preferencesMaxDownloadSpeed", 0) var maxDownloadSpeed: UInt
@@ -161,7 +171,7 @@ class PreferencesStorage: Resolvable {
 }
 
 extension Session.Settings {
-    static func fromPreferences(with interfaces: [NWInterface]) -> Self {
+    static func fromPreferences(interfaceNames: [String]) -> Self {
         let settings = Self()
         let preferences = PreferencesStorage.shared
 
@@ -196,13 +206,26 @@ extension Session.Settings {
         settings.proxyPassword = preferences.proxyPassword
         settings.proxyPeerConnections = preferences.proxyPeerConnections
 
-        var interfacesToUse = interfaces
-        if !preferences.useAllAvailableInterfaces {
-            interfacesToUse = [interfacesToUse.first].compactMap { $0 }
+        // Listen on the IP addresses of the allowed networks: the primary one
+        // (Wi-Fi when it is connected), or all of them if the user chose so.
+        // Not on device names (en0, pdp_ip0...): libtorrent on iOS then treats
+        // those sockets as unable to reach the internet over UDP, so DHT never
+        // starts, UDP trackers are never contacted and uTP peers can't connect
+        // (torrents stay at 0 B/s). Not on 0.0.0.0 either: that also listens
+        // on cellular, and peers would download over cellular while it is off.
+        let names = preferences.useAllAvailableInterfaces ? interfaceNames : Array(interfaceNames.prefix(1))
+        let addresses = NetworkMonitoringService.routableAddresses(of: names)
+        if addresses.isEmpty {
+            // No allowed network (offline, or only cellular while cellular is
+            // not allowed): keep libtorrent off the network.
+            settings.outgoingInterfaces = "lo0"
+            settings.listenInterfaces = "lo0:\(settings.port)"
+        } else {
+            settings.outgoingInterfaces = ""
+            settings.listenInterfaces = addresses
+                .map { $0.contains(":") ? "[\($0)]:\(settings.port)" : "\($0):\(settings.port)" }
+                .joined(separator: ",")
         }
-        let interfacesNamesToUse = interfacesToUse.map { $0.name } + ["lo0"]
-        settings.outgoingInterfaces = interfacesNamesToUse.joined(separator: ",")
-        settings.listenInterfaces = interfacesNamesToUse.map { "\($0):\(settings.port)" }.joined(separator: ",")
 
         print("--- \(settings.listenInterfaces)")
 

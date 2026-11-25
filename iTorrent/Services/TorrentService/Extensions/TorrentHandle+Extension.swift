@@ -98,11 +98,18 @@ extension TorrentHandle.Snapshot {
     }
 
     var canResume: Bool {
-        isPaused && friendlyState != .storageError
+        isPaused && !isQueued && friendlyState != .storageError
     }
 
     var canPause: Bool {
-        !isPaused && state != .checkingResumeData
+        (!isPaused && state != .checkingResumeData) || isQueued
+    }
+}
+
+extension TorrentHandle {
+    /// Shown instead of "Paused" for torrents waiting in the queue
+    static var queuedStateName: String {
+        String(localized: "torrent.state.queued", defaultValue: "Queued")
     }
 }
 

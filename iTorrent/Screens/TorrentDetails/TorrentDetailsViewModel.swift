@@ -160,11 +160,11 @@ extension TorrentDetailsViewModel {
     }
 
     func resume() {
-        torrentHandle.resume()
+        torrentService.start(torrentHandle)
     }
 
     func pause() {
-        torrentHandle.pause()
+        torrentService.pause(torrentHandle)
     }
 
     func rehash(from source: MvvmPresentationSource) {
@@ -245,7 +245,7 @@ private extension TorrentDetailsViewModel {
         canPause = snapshot.canPause
         storageError = friendlyState == .storageError
 
-        stateModel.detail = friendlyState.name
+        stateModel.detail = snapshot.isQueued ? TorrentHandle.queuedStateName(position: snapshot.queuePosition) : friendlyState.name
 
         downloadModel.detail = "\(snapshot.downloadRate.bitrateToHumanReadable)/s"
         uploadModel.detail = "\(snapshot.uploadRate.bitrateToHumanReadable)/s"
@@ -425,11 +425,11 @@ private extension TorrentHandle.ObservedSnapshot {
     }
 
     var canResume: Bool {
-        isPaused && friendlyState != .storageError
+        isPaused && !isQueued && friendlyState != .storageError
     }
 
     var canPause: Bool {
-        !isPaused && state != .checkingResumeData
+        (!isPaused && state != .checkingResumeData) || isQueued
     }
 
     var timeRemains: String {

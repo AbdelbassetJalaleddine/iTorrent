@@ -22,6 +22,7 @@ extension TorrentListViewModel {
         case creationDate
         case addedDate
         case size
+        case queueOrder
     }
 }
 
@@ -64,7 +65,10 @@ class TorrentListViewModel: BaseViewModel {
 //            try await Task.sleep(for: .seconds(0.1))
 
             let groupsSortingArray = PreferencesStorage.shared.$torrentListGroupsSortingArray
-            let torrentSectionChanged = TorrentService.shared.updateNotifier.filter { $0.oldSnapshot.friendlyState != $0.handle?.snapshot.friendlyState }.map{_ in ()}.prepend([()])
+            let torrentSectionChanged = TorrentService.shared.updateNotifier.filter { $0.oldSnapshot.friendlyState != $0.handle?.snapshot.friendlyState }.map{_ in ()}
+                // Re-sort when the queue order changes (for the "Queue order" sorting)
+                .merge(with: TorrentService.shared.queueChanged)
+                .prepend([()])
 
             disposeBag.bind {
                 rssFeedProvider.hasNewsPublisher.sink { [unowned self] value in
@@ -134,15 +138,14 @@ extension TorrentListViewModel {
 
     func resumeAllSelected(at indexPaths: [IndexPath]) {
         let torrentModels = indexPaths.compactMap { sections[$0.section].items[$0.item] as? TorrentListItemViewModel }
-        torrentModels.forEach { 
-            guard $0.torrentHandle.snapshot.canResume else { return }
-            $0.torrentHandle.resume()
-        }
+        let handles = torrentModels.map(\.torrentHandle).filter { $0.snapshot.canResume }
+        // Goes through the queue, so max active / downloading limits are respected
+        TorrentService.shared.start(handles)
     }
 
     func pauseAllSelected(at indexPaths: [IndexPath]) {
         let torrentModels = indexPaths.compactMap { sections[$0.section].items[$0.item] as? TorrentListItemViewModel }
-        torrentModels.forEach { $0.torrentHandle.pause() }
+        TorrentService.shared.pause(torrentModels.map(\.torrentHandle))
     }
 
     func rehashAllSelected(at indexPaths: [IndexPath]) {
@@ -227,8 +230,18 @@ private extension TorrentListViewModel {
 
 private extension Array where Element == TorrentHandle {
     func sorted(by type: TorrentListViewModel.Sort, reverced: Bool) -> [Element] {
+        // Queue order: managed torrents by priority (running and queued #1, #2...), then the rest by name
+        let queueRank: [String: Int] = type == .queueOrder
+            ? Dictionary(TorrentQueue.shared.order.enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
+            : [:]
+
         let res = filter(\.snapshot.isValid).sorted { first, second in
             switch type {
+            case .queueOrder:
+                let firstRank = queueRank[first.snapshot.infoHashes.best.hex] ?? Int.max
+                let secondRank = queueRank[second.snapshot.infoHashes.best.hex] ?? Int.max
+                if firstRank != secondRank { return firstRank < secondRank }
+                return first.snapshot.name.localizedCaseInsensitiveCompare(second.snapshot.name) == .orderedAscending
             case .alphabetically:
                 return first.snapshot.name.localizedCaseInsensitiveCompare(second.snapshot.name) == .orderedAscending
             case .creationDate:

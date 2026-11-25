@@ -9,7 +9,7 @@ import Combine
 @preconcurrency import LibTorrent
 import MvvmFoundation
 import UIKit
-#if canImport(FirebaseCrashlytics)
+#if canImport(FirebaseCrashlytics) && !NO_FIREBASE
 import FirebaseCrashlytics
 #endif
 
@@ -47,17 +47,39 @@ class TorrentService: @unchecked Sendable, ObservableObject {
     static let fastResumePath: URL = preparedConfigurationPath
     static let metadataPath: URL = preparedConfigurationPath
 
-    private lazy var session: Session = {
+    lazy var session: Session = {
         configureOpenSSLCerts()
         var settings = Session.Settings()
         print("Working directory: \(Self.downloadPath.path())")
-        return .init(Self.downloadPath, torrentsPath: Self.torrentPath, fastResumePath: Self.fastResumePath, settings: .fromPreferences(with: []), storages: PreferencesStorage.shared.storageScopes)
+        // Start libtorrent on the right addresses right away
+        network.waitForFirstPathUpdate()
+        return .init(Self.downloadPath, torrentsPath: Self.torrentPath, fastResumePath: Self.fastResumePath, settings: .fromPreferences(interfaceNames: network.allowedInterfaceNames), storages: PreferencesStorage.shared.storageScopes)
     }()
 
-    private let disposeBag = DisposeBag()
+    let disposeBag = DisposeBag()
 
-    @Injected private var network: NetworkMonitoringService
-    @Injected private var preferences: PreferencesStorage
+    // MARK: Queue state (see TorrentService+Queue.swift)
+    var pendingStarts: [String: Date] = [:]
+    var pendingPauses: [String: Date] = [:]
+    var isProcessingQueue = false
+    var startedAt: [String: Date] = [:]
+    var slowHashes: Set<String> = []
+    var speedTransitionSince: [String: Date] = [:]
+    /// Fires when queue positions change (used to re-sort the list)
+    let queueChanged = PassthroughSubject<Void, Never>()
+    /// Torrents being added that must stay paused after adding
+    var addPausedHashes: Set<String> = []
+
+    // MARK: Connection recovery state (see TorrentService+Recovery.swift)
+    var wasDisconnected = false
+    var recoveryGeneration = 0
+    var stalledSince: [String: Date] = [:]
+    var lastAutoRestart: [String: Date] = [:]
+    // Ignore network changes reported while the app is still starting up
+    let recoveryReadyDate = Date().addingTimeInterval(30)
+
+    @Injected var network: NetworkMonitoringService
+    @Injected var preferences: PreferencesStorage
     @Injected private var trackersListService: TrackersListService
 }
 
@@ -72,10 +94,13 @@ extension TorrentService {
     }
 
     @discardableResult
-    func addTorrent(by file: Downloadable, at storage: UUID? = nil) -> Bool {
+    func addTorrent(by file: Downloadable, at storage: UUID? = nil, startPaused: Bool = false) -> Bool {
         guard session.torrentsMap[file.infoHashes] == nil
         else { return false }
 
+        // Added paused (e.g. by RSS auto-download): it starts with the
+        // schedule or when the user starts it.
+        if startPaused { addPausedHashes.insert(file.infoHashes.best.hex) }
         session.addTorrent(file, to: storage ?? preferences.defaultStorage)
         return true
     }
@@ -102,6 +127,29 @@ extension TorrentService {
         handles.forEach { $0.reload() }
         return true
     }
+
+    /// Moves every torrent that is somewhere else to `storage` (nil = the
+    /// internal "iTorrent Default" folder). Progress is kept and running
+    /// torrents continue in the new place. Torrents whose current storage
+    /// can't be reached are skipped. Returns how many moves were started.
+    @discardableResult
+    func moveAllTorrents(to storage: UUID?) -> Int {
+        if let storage {
+            guard let model = preferences.storageScopes[storage], model.allowed else { return 0 }
+        }
+
+        var started = 0
+        for handle in torrents.values {
+            let snapshot = handle.snapshot
+            guard snapshot.isValid,
+                  snapshot.storageUUID != storage,
+                  !snapshot.isStorageMissing
+            else { continue }
+            handle.moveStorage(to: storage)
+            started += 1
+        }
+        return started
+    }
 }
 
 // MARK: - SessionDelegate
@@ -109,6 +157,10 @@ extension TorrentService: SessionDelegate {
     func torrentManager(_ manager: Session, didAddTorrent torrent: TorrentHandle) {
         torrent.prepareToAdd(into: self)
         torrents[torrent.snapshot.infoHashes] = torrent
+
+        // Respect max active / downloading limits for new torrents too
+        let startPaused = addPausedHashes.remove(torrent.snapshot.infoHashes.best.hex) != nil
+        applyQueueToNewTorrent(torrent, start: !startPaused)
 
         // Add trackers from torrent list service if needed
         if preferences.isTrackersAutoaddingEnabled, !torrent.isPrivate {
@@ -129,7 +181,7 @@ extension TorrentService: SessionDelegate {
     }
 
     func torrentManager(_ manager: Session, didErrorOccur error: Error) {
-        #if canImport(FirebaseCrashlytics)
+        #if canImport(FirebaseCrashlytics) && !NO_FIREBASE
         Crashlytics.crashlytics().record(error: error)
         #else
         print("LibTorrent error: \(error)")
@@ -155,13 +207,14 @@ private extension TorrentService {
         disposeBag.bind {
             Publishers.combineLatest(
                 preferences.settingsUpdatePublisher,
-                network.$availableInterfaces
-            ) { _, interfaces in
-                interfaces
+                // Changes when the allowed networks or their IP addresses change
+                network.$allowedInterfaceNames
+            ) { _, names in
+                names
             }
-            .sink { [unowned self] interfaces in
+            .sink { [unowned self] names in
                 DispatchQueue.main.async { [self] in // Need delay to complete settings apply
-                    session.settings = Session.Settings.fromPreferences(with: interfaces)
+                    session.settings = Session.Settings.fromPreferences(interfaceNames: names)
                 }
             }
 
@@ -169,16 +222,21 @@ private extension TorrentService {
                 session.storages = storages
             }
         }
+
+        DispatchQueue.main.async { [self] in
+            setupQueue()
+            setupConnectionRecovery()
+            setupSchedule()
+        }
     }
 
     func resolveStorageScopes() {
         preferences.storageScopes.values.forEach { scope in
+            // The default storage is kept even when it can't be reached right
+            // now (e.g. a drive that isn't connected): new torrents must only
+            // download there, not silently fall back to the internal folder.
+            // They show a storage error until the storage is available again.
             scope.resolveSequrityScopes()
-
-            // If storage is not allowed and it used as default, reset default
-            if !scope.allowed, preferences.defaultStorage == scope.uuid {
-                preferences.defaultStorage = nil
-            }
         }
     }
 }

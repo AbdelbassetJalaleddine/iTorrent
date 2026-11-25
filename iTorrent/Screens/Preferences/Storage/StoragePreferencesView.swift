@@ -31,6 +31,31 @@ class StoragePreferencesViewModel: BaseViewModel, ObservableObject {
         }
     }
 
+    /// Name of the storage that is checked as the default.
+    var defaultStorageName: String {
+        guard let currentStorage else { return StorageModel.defaultName }
+        return customStoragesVM[currentStorage]?.name ?? StorageModel.defaultName
+    }
+
+    func moveAllTorrentsToDefaultStorage() {
+        let target = currentStorage
+        let name = defaultStorageName
+        alert(title: String(localized: "preferences.storage.moveAll.title", defaultValue: "Move All Torrents?"),
+              message: String(localized: "preferences.storage.moveAll.message", defaultValue: "Every torrent is moved to \"\(name)\" and continues downloading there. Moving to another drive copies the data, which can take a while for big torrents."),
+              actions: [
+                  .init(title: %"common.cancel", style: .cancel),
+                  .init(title: String(localized: "preferences.storage.moveAll.action", defaultValue: "Move"), style: .default, isPrimary: true, action: { [weak self] in
+                      let count = TorrentService.shared.moveAllTorrents(to: target)
+                      let message = count == 0
+                          ? String(localized: "preferences.storage.moveAll.none", defaultValue: "All torrents are already in \"\(name)\" (torrents whose storage isn't available are skipped).")
+                          : String(localized: "preferences.storage.moveAll.started", defaultValue: "Moving \(count) torrent(s) to \"\(name)\". They continue downloading once their files are moved.")
+                      self?.alert(title: String(localized: "preferences.storage.moveAll.title.done", defaultValue: "Moving Torrents"), message: message, actions: [
+                          .init(title: %"common.close", style: .cancel, isPrimary: true)
+                      ])
+                  })
+              ])
+    }
+
     @Injected var preferences: PreferencesStorage
 }
 
@@ -147,6 +172,18 @@ struct StoragePreferencesView<VM: StoragePreferencesViewModel>: MvvmSwiftUIViewP
                     Spacer()
                     Text("preferences.storage.storages.available\(viewModel.customStoragesVM.count + 1)/\(storagesLimit)")
                 }
+            } footer: {
+                Text(verbatim: String(localized: "preferences.storage.default.footer", defaultValue: "New torrents download to the checked storage."))
+            }
+
+            Section {
+                Button {
+                    viewModel.moveAllTorrentsToDefaultStorage()
+                } label: {
+                    Text(verbatim: String(localized: "preferences.storage.moveAll.button", defaultValue: "Move All Torrents to \"\(viewModel.defaultStorageName)\""))
+                }
+            } footer: {
+                Text(verbatim: String(localized: "preferences.storage.moveAll.footer", defaultValue: "Moves the files of every torrent to the checked storage. Download progress is kept."))
             }
         }.fileImporter(isPresented: $filePickerPresented, allowedContentTypes: [.folder]) { result in
             guard let url = try? result.get() else { return }
@@ -160,13 +197,19 @@ struct StoragePreferencesView<VM: StoragePreferencesViewModel>: MvvmSwiftUIViewP
             let allowed = url.startAccessingSecurityScopedResource()
             print("Path - \(url) | write permissions - \(allowed)")
 
-            guard let bookmark = try? url.bookmarkData(options: [.minimalBookmark])
+            // A full bookmark (not .minimalBookmark): it keeps the access
+            // permission, so iTorrent can reach the folder after a restart.
+            guard let bookmark = try? url.bookmarkData(options: [])
             else { return }
 
             if let storage = viewModel.preferences.storageScopes.values.first(where: {
-                $0.url == url || $0.url == TorrentService.downloadPath
+                $0.url.standardizedFileURL.resolvingSymlinksInPath() == url.standardizedFileURL.resolvingSymlinksInPath() || $0.url == TorrentService.downloadPath
             }) {
+                // Picking a folder again renews its bookmark (fixes a storage that
+                // lost access); save it and reconnect the torrents stored there.
                 storage.pathBookmark = bookmark
+                viewModel.preferences.storageScopes[storage.uuid] = storage
+                _ = TorrentService.shared.refreshStorage(storage)
                 return
             }
 

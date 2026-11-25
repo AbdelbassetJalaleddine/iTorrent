@@ -91,6 +91,28 @@ private extension PreferencesViewModel {
             PRSwitchViewModel(with: .init(title: %"preferences.seeding.stopOnFinish", value: preferences.$stopSeedingOnFinish.binding, isDangerous: true))
         })
 
+        sections.append(.init(id: "schedule", header: PreferencesViewModel.scheduleHeader, footer: PreferencesViewModel.scheduleFooter) {
+            PRSwitchViewModel(with: .init(title: PreferencesViewModel.scheduleEnabledTitle, value: preferences.$isScheduleEnabled.binding))
+            PRButtonViewModel(with: .init(title: PreferencesViewModel.scheduleStartTitle, value: preferences.$scheduleStartMinutes.map { TorrentService.scheduleTimeString($0) }.eraseToAnyPublisher()) { [unowned self] in
+                textInput(title: PreferencesViewModel.scheduleStartTitle, message: PreferencesViewModel.scheduleTimeHint, placeholder: "01:00", defaultValue: TorrentService.scheduleTimeString(preferences.scheduleStartMinutes), type: .numbersAndPunctuation) { [unowned self] res in
+                    dismissSelection.send()
+                    guard let res, let minutes = TorrentService.scheduleMinutes(from: res) else { return }
+                    preferences.scheduleStartMinutes = minutes
+                }
+            })
+            PRButtonViewModel(with: .init(title: PreferencesViewModel.scheduleStopTitle, value: preferences.$scheduleStopMinutes.map { TorrentService.scheduleTimeString($0) }.eraseToAnyPublisher()) { [unowned self] in
+                textInput(title: PreferencesViewModel.scheduleStopTitle, message: PreferencesViewModel.scheduleTimeHint, placeholder: "07:00", defaultValue: TorrentService.scheduleTimeString(preferences.scheduleStopMinutes), type: .numbersAndPunctuation) { [unowned self] res in
+                    dismissSelection.send()
+                    guard let res, let minutes = TorrentService.scheduleMinutes(from: res) else { return }
+                    preferences.scheduleStopMinutes = minutes
+                }
+            })
+            PRButtonViewModel(with: .init(title: PreferencesViewModel.scheduleAutomationTitle, value: Just("").eraseToAnyPublisher(), selectAction: { [unowned self] in
+                dismissSelection.send()
+                showAutomationSetup()
+            }))
+        })
+
         sections.append(.init(id: "torrentQueueLimits", header: %"preferences.queueLimits") {
             PRButtonViewModel(with: .init(title: %"preferences.queueLimits.active", value: preferences.$maxActiveTorrents.map { $0 == 0 ? %"preferences.speedLimits.unlimited" : "\($0)" }.eraseToAnyPublisher()) { [unowned self] in
                 textInput(title: %"preferences.queueLimits.active", placeholder: %"preferences.speedLimits.unlimited", defaultValue: "\(preferences.maxActiveTorrents)", type: .numberPad) { [unowned self] res in
@@ -104,6 +126,13 @@ private extension PreferencesViewModel {
                     dismissSelection.send()
                     guard let res else { return }
                     preferences.maxDownloadingTorrents = Int(res) ?? 0
+                }
+            })
+            PRButtonViewModel(with: .init(title: PreferencesViewModel.slowThresholdTitle, value: preferences.$slowTorrentThreshold.map { $0 <= 0 ? PreferencesViewModel.slowThresholdOff : "\($0) KB/s" }.eraseToAnyPublisher()) { [unowned self] in
+                textInput(title: PreferencesViewModel.slowThresholdTitle, message: PreferencesViewModel.slowThresholdMessage, placeholder: PreferencesViewModel.slowThresholdOff, defaultValue: "\(preferences.slowTorrentThreshold)", type: .numberPad) { [unowned self] res in
+                    dismissSelection.send()
+                    guard let res else { return }
+                    preferences.slowTorrentThreshold = max(0, Int(res) ?? 0)
                 }
             })
             PRButtonViewModel(with: .init(title: %"preferences.queueLimits.uploading", value: preferences.$maxUploadingTorrents.map { $0 == 0 ? %"preferences.speedLimits.unlimited" : "\($0)" }.eraseToAnyPublisher()) { [unowned self] in
@@ -136,6 +165,9 @@ private extension PreferencesViewModel {
             PRSwitchViewModel(with: .init(id: "filesharingswitch", title: %"common.enable", value: preferences.$isFileSharingEnabled.binding))
             PRButtonViewModel(with: .init(id: "filesharingbutton", title: %"preferences", accessories: [.disclosureIndicator()]) { [unowned self] in
                 navigate(to: FileSharingPreferencesViewModel.self, by: .show)
+            })
+            PRButtonViewModel(with: .init(id: "shizukubutton", title: String(localized: "shizuku.title", defaultValue: "Android TV (Shizuku)"), accessories: [.disclosureIndicator()]) { [unowned self] in
+                navigate(to: ShizukuPreferencesViewModel.self, by: .show)
             })
         })
 
@@ -246,5 +278,77 @@ private extension BackgroundService.Mode {
         case .location:
             return %"preferences.background.mode.location"
         }
+    }
+}
+
+// MARK: - Slow torrents
+private extension PreferencesViewModel {
+    static var slowThresholdTitle: String {
+        String(localized: "preferences.queueLimits.slowThreshold", defaultValue: "Slow torrent speed")
+    }
+
+    static var slowThresholdOff: String {
+        String(localized: "preferences.queueLimits.slowThreshold.off", defaultValue: "Off")
+    }
+
+    static var slowThresholdMessage: String {
+        String(localized: "preferences.queueLimits.slowThreshold.message", defaultValue: "In KB/s. Downloads slower than this don't take a download slot, so the next queued torrent starts next to them. They keep running and take a slot again if they speed up. 0 turns this off.")
+    }
+}
+
+// MARK: - Schedule
+private extension PreferencesViewModel {
+    /// iOS doesn't let apps create automations, so show the steps with the
+    /// user's start time and open the Shortcuts app.
+    func showAutomationSetup() {
+        let time = TorrentService.scheduleTimeString(preferences.scheduleStartMinutes)
+        let message = String(localized: "preferences.schedule.automation.steps", defaultValue: """
+        In the Shortcuts app:
+
+        1. Open the Automation tab and tap +
+        2. Choose Time of Day
+        3. Set \(time), Daily, and Run Immediately
+        4. Tap Next, then New Blank Automation
+        5. Add "Check RSS Feeds" (optional), then "Start Scheduled Torrents" (search iTorrent)
+        6. Tap Done
+
+        iTorrent will then start your downloads at \(time) every day, even when the phone is locked.
+        """)
+
+        alert(title: PreferencesViewModel.scheduleAutomationTitle, message: message, actions: [
+            .init(title: String(localized: "common.cancel"), style: .cancel),
+            .init(title: String(localized: "preferences.schedule.automation.open", defaultValue: "Open Shortcuts"), style: .default, isPrimary: true, action: {
+                guard let url = URL(string: "shortcuts://") else { return }
+                UIApplication.shared.open(url)
+            })
+        ])
+    }
+
+    static var scheduleAutomationTitle: String {
+        String(localized: "preferences.schedule.automation", defaultValue: "Set Up Automation…")
+    }
+
+    static var scheduleHeader: String {
+        String(localized: "preferences.schedule", defaultValue: "Schedule")
+    }
+
+    static var scheduleEnabledTitle: String {
+        String(localized: "preferences.schedule.enabled", defaultValue: "Daily Schedule")
+    }
+
+    static var scheduleStartTitle: String {
+        String(localized: "preferences.schedule.start", defaultValue: "Start Time")
+    }
+
+    static var scheduleStopTitle: String {
+        String(localized: "preferences.schedule.stop", defaultValue: "Stop Time")
+    }
+
+    static var scheduleTimeHint: String {
+        String(localized: "preferences.schedule.timeHint", defaultValue: "24-hour time, for example 01:00 or 23:30")
+    }
+
+    static var scheduleFooter: String {
+        String(localized: "preferences.schedule.footer", defaultValue: "Every day at the start time, all paused torrents that aren't finished start (following the queue limits). At the stop time, all torrents pause. You can still start torrents manually at any time. iOS can't wake iTorrent by itself: tap Set Up Automation to add a Shortcuts automation so downloads always start on time.")
     }
 }
